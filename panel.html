@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Escaneo PLC</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Banco de prueba TCP</p>
+          <h1>Escaneo PLC</h1>
+        </div>
+        <div class="status-pill" id="statusPill">
+          <span class="status-dot"></span>
+          <span id="statusText">Desconectado</span>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="panel connection-card">
+          <div class="panel-title">
+            <p class="eyebrow">Red PLC</p>
+            <h2>Conexion</h2>
+          </div>
+          <form id="connectionForm" class="form-grid">
+            <label>
+              IP fija del PLC
+              <input id="host" name="host" type="text" value="192.168.1.50" autocomplete="off" />
+            </label>
+
+            <div class="mac-box">
+              <div>
+                <span>MAC address</span>
+                <strong id="macAddress">No detectada</strong>
+              </div>
+              <button type="button" id="detectMacButton">Detectar</button>
+            </div>
+
+            <label>
+              Puerto TCP
+              <input id="port" name="port" type="number" min="1" max="65535" value="502" />
+            </label>
+
+            <label>
+              Timeout ms
+              <input id="timeoutMs" name="timeoutMs" type="number" min="250" step="250" value="3000" />
+            </label>
+
+            <label>
+              Reintento ms
+              <input id="reconnectMs" name="reconnectMs" type="number" min="500" step="500" value="2000" />
+            </label>
+
+            <label class="check-row">
+              <input id="autoReconnect" name="autoReconnect" type="checkbox" checked />
+              Reconectar automaticamente
+            </label>
+
+            <div class="button-row">
+              <button class="primary" type="submit" id="connectButton">Conectar</button>
+              <button type="button" id="disconnectButton">Desconectar</button>
+            </div>
+          </form>
+        </aside>
+
+        <section class="workspace">
+          <div class="metric-grid">
+            <article class="metric metric-sent">
+              <span>Enviados</span>
+              <strong id="sentCount">0</strong>
+            </article>
+            <article class="metric metric-received">
+              <span>Recibidos</span>
+              <strong id="receivedCount">0</strong>
+            </article>
+            <article class="metric metric-disconnect">
+              <span>Desconexiones</span>
+              <strong id="disconnectCount">0</strong>
+            </article>
+            <article class="metric metric-latency">
+              <span>Latencia</span>
+              <strong id="latency">--</strong>
+            </article>
+          </div>
+
+          <section class="panel send-panel">
+            <div class="section-head">
+              <div>
+                <h2>Datos de prueba</h2>
+                <p>Usa texto simple o bytes HEX segun el protocolo del PLC.</p>
+              </div>
+              <div class="segmented">
+                <label>
+                  <input type="radio" name="mode" value="text" checked />
+                  Texto
+                </label>
+                <label>
+                  <input type="radio" name="mode" value="hex" />
+                  HEX
+                </label>
+              </div>
+            </div>
+
+            <textarea id="payload" spellcheck="false">TEST</textarea>
+
+            <div class="loop-row">
+              <label>
+                Intervalo ms
+                <input id="intervalMs" type="number" min="100" step="100" value="1000" />
+              </label>
+              <div class="button-row">
+                <button class="primary" id="sendButton" type="button">Enviar una vez</button>
+                <button id="startLoopButton" type="button">Iniciar ciclo</button>
+                <button id="stopLoopButton" type="button">Detener ciclo</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="split">
+            <article class="panel">
+              <div class="section-head compact">
+                <h2>Respuesta del PLC</h2>
+                <button id="clearDataButton" type="button">Limpiar</button>
+              </div>
+              <div class="data-view" id="dataView">
+                <p class="empty">Sin datos recibidos.</p>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="section-head compact">
+                <h2>Eventos</h2>
+                <button id="clearLogButton" type="button">Limpiar</button>
+              </div>
+              <div class="log-view" id="logView"></div>
+            </article>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
