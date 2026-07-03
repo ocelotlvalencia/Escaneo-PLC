@@ -1,16 +1,44 @@
 {
   "name": "escaneo",
   "version": "1.0.0",
-  "description": "",
+  "description": "Herramienta de escaneo y prueba TCP para PLC.",
   "license": "ISC",
-  "author": "",
+  "author": "Eduardo Ocelotl",
   "type": "commonjs",
   "main": "main.js",
   "scripts": {
     "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win nsis",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "build": {
+    "appId": "com.ocelotlvalencia.escaneoplc",
+    "productName": "Escaneo PLC",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "panel.html",
+      "styles.css",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Escaneo PLC"
+    }
+  },
   "devDependencies": {
-    "electron": "^31.7.7"
+    "electron": "^31.7.7",
+    "electron-builder": "^26.15.3"
   }
 }
