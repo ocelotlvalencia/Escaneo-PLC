@@ -88,6 +88,10 @@
               <span>Latencia</span>
               <strong id="latency">--</strong>
             </article>
+            <article class="metric metric-state">
+              <span>Estado</span>
+              <strong id="statusSeconds">0s</strong>
+            </article>
           </div>
 
           <section class="panel modbus-panel">
@@ -104,7 +108,11 @@
             <div class="counter-grid">
               <label>
                 Valor a enviar
-                <input id="counterValue" type="number" min="1" max="100" value="1" />
+                <div class="stepper-control">
+                  <button type="button" id="incrementCounterButton" aria-label="Aumentar valor">▲</button>
+                  <input id="counterValue" type="number" min="1" max="100" value="1" />
+                  <button type="button" id="decrementCounterButton" aria-label="Disminuir valor">▼</button>
+                </div>
               </label>
               <label>
                 Registro Modbus

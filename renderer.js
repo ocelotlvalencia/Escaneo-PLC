@@ -5,6 +5,8 @@ const connectButton = document.querySelector('#connectButton');
 const disconnectButton = document.querySelector('#disconnectButton');
 const detectMacButton = document.querySelector('#detectMacButton');
 const writeCounterButton = document.querySelector('#writeCounterButton');
+const incrementCounterButton = document.querySelector('#incrementCounterButton');
+const decrementCounterButton = document.querySelector('#decrementCounterButton');
 const clearLogButton = document.querySelector('#clearLogButton');
 const clearDataButton = document.querySelector('#clearDataButton');
 const counterValue = document.querySelector('#counterValue');
@@ -17,6 +19,7 @@ const sentCount = document.querySelector('#sentCount');
 const receivedCount = document.querySelector('#receivedCount');
 const disconnectCount = document.querySelector('#disconnectCount');
 const latency = document.querySelector('#latency');
+const statusSeconds = document.querySelector('#statusSeconds');
 const macAddress = document.querySelector('#macAddress');
 
 let connected = false;
@@ -54,6 +57,22 @@ function setStatus(state) {
   statusText.textContent = labels[state] || labels.disconnected;
 }
 
+function setStatusTiming(status = {}) {
+  const seconds = Number(status.connected ? status.connectedSeconds : status.stateSeconds) || 0;
+  const labels = {
+    connected: 'Conectado',
+    connecting: 'Conectando',
+    reconnecting: 'Reconectando',
+    timeout: 'Timeout',
+    error: 'Error',
+    disconnected: 'Sin conexion'
+  };
+  const label = labels[status.state] || (status.connected ? 'Conectado' : 'Sin conexion');
+
+  statusSeconds.textContent = `${seconds}s`;
+  statusText.textContent = `${label} ${seconds}s`;
+}
+
 function setControls() {
   connectButton.disabled = connected;
   disconnectButton.disabled = !connected;
@@ -66,6 +85,16 @@ function renderStats(stats = {}) {
   receivedCount.textContent = stats.received ?? 0;
   disconnectCount.textContent = stats.disconnects ?? 0;
   latency.textContent = stats.lastLatencyMs == null ? '--' : `${stats.lastLatencyMs} ms`;
+}
+
+function clampCounterValue(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return 1;
+  return Math.min(100, Math.max(1, Math.round(numericValue)));
+}
+
+function setCounterValue(value) {
+  counterValue.value = clampCounterValue(value);
 }
 
 function timeLabel(value) {
@@ -148,10 +177,23 @@ disconnectButton.addEventListener('click', () => {
 
 writeCounterButton.addEventListener('click', () => {
   runAction(async () => {
+    setCounterValue(counterValue.value);
     const request = getCounterRequest();
     const result = await window.plcApi.writeCounter(request);
     lastCounterValue.textContent = result.value;
   });
+});
+
+incrementCounterButton.addEventListener('click', () => {
+  setCounterValue(Number(counterValue.value) + 1);
+});
+
+decrementCounterButton.addEventListener('click', () => {
+  setCounterValue(Number(counterValue.value) - 1);
+});
+
+counterValue.addEventListener('change', () => {
+  setCounterValue(counterValue.value);
 });
 
 clearLogButton.addEventListener('click', () => {
@@ -165,6 +207,7 @@ clearDataButton.addEventListener('click', () => {
 window.plcApi.on('plc:status', (status) => {
   connected = Boolean(status.connected);
   setStatus(status.state);
+  setStatusTiming(status);
   renderStats(status.stats);
   setControls();
 });
@@ -179,6 +222,7 @@ window.plcApi.getStatus()
   .then((status) => {
     connected = Boolean(status.connected);
     setStatus(connected ? 'connected' : 'disconnected');
+    setStatusTiming(status);
     renderStats(status.stats);
     setControls();
   })

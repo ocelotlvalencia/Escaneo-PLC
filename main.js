@@ -7,10 +7,15 @@ let mainWindow;
 let socket = null;
 let currentConfig = null;
 let reconnectTimer = null;
-let loopTimer = null;
+let heartbeatTimer = null;
+let statusTicker = null;
+let heartbeatInFlight = false;
 let connected = false;
 let lastSendAt = 0;
 let modbusTransactionId = 1;
+let connectionState = 'disconnected';
+let stateChangedAt = Date.now();
+let connectedAt = null;
 
 const stats = {
   sent: 0,
@@ -67,9 +72,17 @@ function log(message, level = 'info') {
 }
 
 function publishStatus(state, extra = {}) {
+  if (state && state !== connectionState) {
+    connectionState = state;
+    stateChangedAt = Date.now();
+  }
+
+  const now = Date.now();
   sendToRenderer('plc:status', {
-    state,
+    state: connectionState,
     connected,
+    stateSeconds: Math.max(0, Math.floor((now - stateChangedAt) / 1000)),
+    connectedSeconds: connectedAt ? Math.max(0, Math.floor((now - connectedAt) / 1000)) : 0,
     stats: { ...stats },
     config: currentConfig,
     ...extra
@@ -93,6 +106,7 @@ function closeSocket(countDisconnect = false) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
+  stopHeartbeat();
 
   if (socket) {
     socket.removeAllListeners();
@@ -105,6 +119,7 @@ function closeSocket(countDisconnect = false) {
   }
 
   connected = false;
+  connectedAt = null;
 }
 
 function scheduleReconnect() {
@@ -116,6 +131,79 @@ function scheduleReconnect() {
     log('Intentando reconectar...');
     connectToPlc(currentConfig, true);
   }, Number(currentConfig.reconnectMs) || 2000);
+}
+
+function startStatusTicker() {
+  if (statusTicker) return;
+
+  statusTicker = setInterval(() => {
+    publishStatus(connectionState);
+  }, 1000);
+}
+
+function stopStatusTicker() {
+  if (!statusTicker) return;
+  clearInterval(statusTicker);
+  statusTicker = null;
+}
+
+function stopHeartbeat() {
+  if (!heartbeatTimer) return;
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+  heartbeatInFlight = false;
+}
+
+function probeTcpConnection(config) {
+  return new Promise((resolve, reject) => {
+    const host = String(config.host || '').trim();
+    const port = Number(config.port || 502);
+    const timeoutMs = Math.min(Number(config.timeoutMs) || 3000, 3000);
+    const probeSocket = new net.Socket();
+    let settled = false;
+
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      probeSocket.removeAllListeners();
+      probeSocket.destroy();
+
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    };
+
+    probeSocket.setTimeout(timeoutMs);
+    probeSocket.connect(port, host, () => finish());
+    probeSocket.on('timeout', () => finish(new Error('Heartbeat sin respuesta.')));
+    probeSocket.on('error', finish);
+  });
+}
+
+function startHeartbeat() {
+  stopHeartbeat();
+
+  heartbeatTimer = setInterval(() => {
+    if (!currentConfig || !connected || heartbeatInFlight) return;
+
+    heartbeatInFlight = true;
+    probeTcpConnection(currentConfig)
+      .then(() => {
+        heartbeatInFlight = false;
+        publishStatus('connected');
+      })
+      .catch((error) => {
+        heartbeatInFlight = false;
+        stats.errors += 1;
+        log(`PLC sin conexion: ${error.message}`, 'error');
+        closeSocket(true);
+        publishStatus('disconnected', { error: error.message });
+        scheduleReconnect();
+      });
+  }, 3000);
 }
 
 function connectToPlc(config, isReconnect = false) {
@@ -136,12 +224,16 @@ function connectToPlc(config, isReconnect = false) {
   socket.setTimeout(timeoutMs);
 
   publishStatus(isReconnect ? 'reconnecting' : 'connecting');
+  startStatusTicker();
   log(`${isReconnect ? 'Reconectando' : 'Conectando'} a ${host}:${port}...`);
 
   socket.connect(port, host, () => {
     connected = true;
+    connectedAt = Date.now();
+    socket.setTimeout(0);
     log(`Conexion establecida con ${host}:${port}.`, 'success');
     publishStatus('connected');
+    startHeartbeat();
   });
 
   socket.on('data', (data) => {
@@ -162,8 +254,10 @@ function connectToPlc(config, isReconnect = false) {
 
   socket.on('timeout', () => {
     stats.errors += 1;
-    log(`Sin respuesta del socket por ${timeoutMs} ms.`, 'warn');
+    log(`No se pudo establecer conexion en ${timeoutMs} ms.`, 'warn');
+    closeSocket(true);
     publishStatus('timeout');
+    scheduleReconnect();
   });
 
   socket.on('error', (error) => {
@@ -182,6 +276,7 @@ function connectToPlc(config, isReconnect = false) {
       log(hadError ? 'Conexion cerrada con error.' : 'Conexion cerrada por el equipo remoto.', hadError ? 'error' : 'warn');
     }
 
+    connectedAt = null;
     publishStatus('disconnected');
     scheduleReconnect();
   });
@@ -428,20 +523,10 @@ ipcMain.handle('plc:connect', (_event, config) => {
 });
 
 ipcMain.handle('plc:disconnect', () => {
-  if (loopTimer) {
-    clearInterval(loopTimer);
-    loopTimer = null;
-  }
   closeSocket(true);
   log('Conexion detenida por el usuario.');
   publishStatus('disconnected');
   return { ok: true };
-});
-
-ipcMain.handle('plc:send', (_event, request) => {
-  const result = sendPayload(request.payload, request.mode);
-  log(`Enviado ${result.bytes} bytes (${result.hex}).`, 'success');
-  return { ok: true, ...result };
 });
 
 ipcMain.handle('plc:detectMac', async (_event, request) => {
@@ -464,42 +549,13 @@ ipcMain.handle('plc:writeCounter', async (_event, request) => {
   return result;
 });
 
-ipcMain.handle('plc:startLoop', (_event, request) => {
-  if (loopTimer) clearInterval(loopTimer);
-
-  const intervalMs = Math.max(100, Number(request.intervalMs) || 1000);
-  loopTimer = setInterval(() => {
-    try {
-      const result = sendPayload(request.payload, request.mode);
-      log(`Ciclo enviado: ${result.bytes} bytes.`, 'success');
-    } catch (error) {
-      log(`Ciclo detenido: ${error.message}`, 'error');
-      clearInterval(loopTimer);
-      loopTimer = null;
-      sendToRenderer('plc:loop', { running: false });
-    }
-  }, intervalMs);
-
-  sendToRenderer('plc:loop', { running: true, intervalMs });
-  log(`Envio ciclico cada ${intervalMs} ms.`);
-  return { ok: true, intervalMs };
-});
-
-ipcMain.handle('plc:stopLoop', () => {
-  if (loopTimer) {
-    clearInterval(loopTimer);
-    loopTimer = null;
-  }
-  sendToRenderer('plc:loop', { running: false });
-  log('Envio ciclico detenido.');
-  return { ok: true };
-});
-
 ipcMain.handle('plc:getStatus', () => ({
   connected,
+  state: connectionState,
+  stateSeconds: Math.max(0, Math.floor((Date.now() - stateChangedAt) / 1000)),
+  connectedSeconds: connectedAt ? Math.max(0, Math.floor((Date.now() - connectedAt) / 1000)) : 0,
   stats: { ...stats },
-  config: currentConfig,
-  loopRunning: Boolean(loopTimer)
+  config: currentConfig
 }));
 
 app.whenReady()
@@ -518,6 +574,7 @@ app.whenReady()
 
 app.on('window-all-closed', () => {
   closeSocket(false);
+  stopStatusTicker();
   if (process.platform !== 'darwin') {
     app.quit();
   }

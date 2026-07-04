@@ -342,7 +342,7 @@ textarea:focus {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   min-width: 0;
 }
@@ -369,6 +369,10 @@ textarea:focus {
 
 .metric-latency::before {
   background: #526d95;
+}
+
+.metric-state::before {
+  background: var(--ok);
 }
 
 .metric span,
@@ -468,9 +472,33 @@ textarea:focus {
 
 .counter-grid {
   display: grid;
-  grid-template-columns: minmax(120px, 0.8fr) minmax(140px, 1fr) minmax(90px, 0.5fr) auto;
+  grid-template-columns: minmax(150px, 0.85fr) minmax(140px, 1fr) minmax(90px, 0.5fr) auto;
   gap: 14px;
   align-items: end;
+}
+
+.stepper-control {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+}
+
+.stepper-control input {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.stepper-control button {
+  min-width: 42px;
+  min-height: 40px;
+  padding: 0;
+  color: #fff;
+  border-color: transparent;
+  background: var(--primary);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .counter-actions {
@@ -599,7 +627,7 @@ textarea:focus {
   }
 
   .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .metric {
@@ -703,6 +731,7 @@ textarea:focus {
 
   .metric-grid {
     gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .metric {
