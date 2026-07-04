@@ -14,7 +14,7 @@
     <main class="app-shell">
       <section class="topbar">
         <div>
-          <p class="eyebrow">Banco de prueba TCP</p>
+          <p class="eyebrow">Banco de prueba Modbus TCP</p>
           <h1>Escaneo PLC</h1>
         </div>
         <div class="status-pill" id="statusPill">
@@ -32,7 +32,7 @@
           <form id="connectionForm" class="form-grid">
             <label>
               IP fija del PLC
-              <input id="host" name="host" type="text" value="192.168.1.50" autocomplete="off" />
+              <input id="host" name="host" type="text" value="192.168.0.150" autocomplete="off" />
             </label>
 
             <div class="mac-box">
@@ -44,7 +44,7 @@
             </div>
 
             <label>
-              Puerto TCP
+              Puerto Modbus
               <input id="port" name="port" type="number" min="1" max="65535" value="502" />
             </label>
 
@@ -90,36 +90,37 @@
             </article>
           </div>
 
-          <section class="panel send-panel">
+          <section class="panel modbus-panel">
             <div class="section-head">
               <div>
-                <h2>Datos de prueba</h2>
-                <p>Usa texto simple o bytes HEX segun el protocolo del PLC.</p>
+                <h2>Contador Modbus</h2>
+                <p>Escribe un valor del 1 al 100 en DS1 usando Write Single Register.</p>
               </div>
-              <div class="segmented">
-                <label>
-                  <input type="radio" name="mode" value="text" checked />
-                  Texto
-                </label>
-                <label>
-                  <input type="radio" name="mode" value="hex" />
-                  HEX
-                </label>
+              <div class="register-badge">
+                DS1 / 400001
               </div>
             </div>
 
-            <textarea id="payload" spellcheck="false">TEST</textarea>
-
-            <div class="loop-row">
+            <div class="counter-grid">
               <label>
-                Intervalo ms
-                <input id="intervalMs" type="number" min="100" step="100" value="1000" />
+                Valor a enviar
+                <input id="counterValue" type="number" min="1" max="100" value="1" />
               </label>
-              <div class="button-row">
-                <button class="primary" id="sendButton" type="button">Enviar una vez</button>
-                <button id="startLoopButton" type="button">Iniciar ciclo</button>
-                <button id="stopLoopButton" type="button">Detener ciclo</button>
+              <label>
+                Registro Modbus
+                <input id="modbusRegister" type="number" min="0" max="465536" value="400001" />
+              </label>
+              <label>
+                Unit ID
+                <input id="unitId" type="number" min="1" max="247" value="1" />
+              </label>
+              <div class="counter-actions">
+                <button class="primary" id="writeCounterButton" type="button">Enviar a DS1</button>
               </div>
+            </div>
+
+            <div class="counter-result">
+              Ultimo valor enviado: <strong id="lastCounterValue">--</strong>
             </div>
           </section>
 

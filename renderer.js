@@ -4,13 +4,13 @@ const statusText = document.querySelector('#statusText');
 const connectButton = document.querySelector('#connectButton');
 const disconnectButton = document.querySelector('#disconnectButton');
 const detectMacButton = document.querySelector('#detectMacButton');
-const sendButton = document.querySelector('#sendButton');
-const startLoopButton = document.querySelector('#startLoopButton');
-const stopLoopButton = document.querySelector('#stopLoopButton');
+const writeCounterButton = document.querySelector('#writeCounterButton');
 const clearLogButton = document.querySelector('#clearLogButton');
 const clearDataButton = document.querySelector('#clearDataButton');
-const payload = document.querySelector('#payload');
-const intervalMs = document.querySelector('#intervalMs');
+const counterValue = document.querySelector('#counterValue');
+const modbusRegister = document.querySelector('#modbusRegister');
+const unitId = document.querySelector('#unitId');
+const lastCounterValue = document.querySelector('#lastCounterValue');
 const logView = document.querySelector('#logView');
 const dataView = document.querySelector('#dataView');
 const sentCount = document.querySelector('#sentCount');
@@ -20,11 +20,6 @@ const latency = document.querySelector('#latency');
 const macAddress = document.querySelector('#macAddress');
 
 let connected = false;
-let loopRunning = false;
-
-function getMode() {
-  return document.querySelector('input[name="mode"]:checked').value;
-}
 
 function getConfig() {
   return {
@@ -33,6 +28,15 @@ function getConfig() {
     timeoutMs: Number(document.querySelector('#timeoutMs').value),
     reconnectMs: Number(document.querySelector('#reconnectMs').value),
     autoReconnect: document.querySelector('#autoReconnect').checked
+  };
+}
+
+function getCounterRequest() {
+  return {
+    ...getConfig(),
+    value: Number(counterValue.value),
+    register: Number(modbusRegister.value),
+    unitId: Number(unitId.value)
   };
 }
 
@@ -52,11 +56,9 @@ function setStatus(state) {
 
 function setControls() {
   connectButton.disabled = connected;
-  disconnectButton.disabled = !connected && !loopRunning;
+  disconnectButton.disabled = !connected;
   detectMacButton.disabled = false;
-  sendButton.disabled = !connected;
-  startLoopButton.disabled = !connected || loopRunning;
-  stopLoopButton.disabled = !loopRunning;
+  writeCounterButton.disabled = !connected;
 }
 
 function renderStats(stats = {}) {
@@ -144,23 +146,12 @@ disconnectButton.addEventListener('click', () => {
   runAction(() => window.plcApi.disconnect());
 });
 
-sendButton.addEventListener('click', () => {
-  runAction(() => window.plcApi.send({
-    payload: payload.value,
-    mode: getMode()
-  }));
-});
-
-startLoopButton.addEventListener('click', () => {
-  runAction(() => window.plcApi.startLoop({
-    payload: payload.value,
-    mode: getMode(),
-    intervalMs: Number(intervalMs.value)
-  }));
-});
-
-stopLoopButton.addEventListener('click', () => {
-  runAction(() => window.plcApi.stopLoop());
+writeCounterButton.addEventListener('click', () => {
+  runAction(async () => {
+    const request = getCounterRequest();
+    const result = await window.plcApi.writeCounter(request);
+    lastCounterValue.textContent = result.value;
+  });
 });
 
 clearLogButton.addEventListener('click', () => {
@@ -184,15 +175,9 @@ window.plcApi.on('plc:data', (entry) => {
   renderStats(entry.stats);
 });
 
-window.plcApi.on('plc:loop', (state) => {
-  loopRunning = Boolean(state.running);
-  setControls();
-});
-
 window.plcApi.getStatus()
   .then((status) => {
     connected = Boolean(status.connected);
-    loopRunning = Boolean(status.loopRunning);
     setStatus(connected ? 'connected' : 'disconnected');
     renderStats(status.stats);
     setControls();

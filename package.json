@@ -1,7 +1,7 @@
 {
   "name": "escaneo",
-  "version": "1.0.0",
-  "description": "Herramienta de escaneo y prueba TCP para PLC.",
+  "version": "1.0.1",
+  "description": "Herramienta de escritura y monitoreo Modbus TCP para PLC.",
   "license": "ISC",
   "author": "Eduardo Ocelotl",
   "type": "commonjs",

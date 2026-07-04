@@ -447,26 +447,50 @@ textarea:focus {
   box-shadow: 0 8px 18px rgba(8, 127, 131, 0.18);
 }
 
-.send-panel {
+.modbus-panel {
   box-shadow: var(--shadow);
 }
 
-textarea {
-  display: block;
-  min-height: 100px;
-  max-height: 18vh;
-  resize: none;
-  font-family: Consolas, 'Courier New', monospace;
-  font-size: 15px;
-  line-height: 1.42;
+.register-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid rgba(8, 127, 131, 0.18);
+  border-radius: 999px;
+  padding: 0 14px;
+  color: var(--primary-strong);
+  background: rgba(8, 127, 131, 0.09);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
-.loop-row {
+.counter-grid {
   display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
+  grid-template-columns: minmax(120px, 0.8fr) minmax(140px, 1fr) minmax(90px, 0.5fr) auto;
   gap: 14px;
   align-items: end;
-  margin-top: 13px;
+}
+
+.counter-actions {
+  display: flex;
+  align-items: end;
+}
+
+.counter-result {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px 12px;
+  color: var(--muted);
+  background: rgba(248, 250, 252, 0.86);
+  font-size: 13px;
+}
+
+.counter-result strong {
+  color: var(--ink);
+  font-family: Consolas, 'Courier New', monospace;
 }
 
 .split {
@@ -587,9 +611,12 @@ textarea {
     margin-bottom: 7px;
   }
 
-  textarea {
-    min-height: 82px;
-    max-height: 14vh;
+  .counter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .counter-actions {
+    grid-column: span 2;
   }
 }
 
@@ -688,13 +715,18 @@ textarea {
     margin-bottom: 10px;
   }
 
-  textarea {
-    min-height: 68px;
+  .counter-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
   }
 
-  .loop-row {
-    grid-template-columns: 130px minmax(0, 1fr);
-    gap: 10px;
+  .counter-grid label:first-child,
+  .counter-grid label:nth-child(2) {
+    grid-column: span 2;
+  }
+
+  .counter-actions {
+    grid-column: span 1;
   }
 
   .split {
@@ -725,9 +757,15 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .loop-row,
+  .counter-grid,
   .split {
     grid-template-columns: 1fr;
+  }
+
+  .counter-grid label:first-child,
+  .counter-grid label:nth-child(2),
+  .counter-actions {
+    grid-column: auto;
   }
 }
 
@@ -797,14 +835,9 @@ textarea {
     min-height: 34px;
   }
 
-  textarea {
-    min-height: 62px;
-    max-height: 12vh;
-    font-size: 14px;
-  }
-
-  .loop-row {
+  .counter-result {
     margin-top: 9px;
+    padding: 8px 10px;
   }
 
   .data-view,
