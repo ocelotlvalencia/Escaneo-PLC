@@ -1,4 +1,5 @@
 const net = require('node:net');
+const os = require('node:os');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
@@ -560,6 +561,32 @@ function parseMacFromArp(output, host) {
   return mac ? mac.toUpperCase().replace(/:/g, '-') : null;
 }
 
+function detectAdapterMedium(name) {
+  const normalized = String(name || '').toLowerCase();
+
+  if (normalized.includes('wi-fi') || normalized.includes('wifi') || normalized.includes('wireless') || normalized.includes('wlan')) {
+    return 'wifi';
+  }
+
+  if (normalized.includes('ethernet') || normalized.includes('lan')) {
+    return 'ethernet';
+  }
+
+  return 'unknown';
+}
+
+function getNetworkAdapters() {
+  return Object.entries(os.networkInterfaces())
+    .flatMap(([name, addresses]) => (addresses || [])
+      .filter((address) => address.family === 'IPv4' && !address.internal)
+      .map((address) => ({
+        name,
+        medium: detectAdapterMedium(name),
+        address: address.address,
+        mac: address.mac
+      })));
+}
+
 async function detectMacAddress(host) {
   const target = String(host || '').trim();
   if (!target) throw new Error('IP requerida para detectar MAC.');
@@ -627,6 +654,8 @@ ipcMain.handle('plc:getStatus', () => ({
   stats: { ...stats },
   config: currentConfig
 }));
+
+ipcMain.handle('plc:getNetworkAdapters', () => getNetworkAdapters());
 
 app.whenReady()
   .then(() => {

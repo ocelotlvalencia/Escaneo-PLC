@@ -9,6 +9,8 @@ const incrementCounterButton = document.querySelector('#incrementCounterButton')
 const decrementCounterButton = document.querySelector('#decrementCounterButton');
 const clearLogButton = document.querySelector('#clearLogButton');
 const clearDataButton = document.querySelector('#clearDataButton');
+const startTimedTestButton = document.querySelector('#startTimedTestButton');
+const stopTimedTestButton = document.querySelector('#stopTimedTestButton');
 const counterValue = document.querySelector('#counterValue');
 const modbusRegister = document.querySelector('#modbusRegister');
 const unitId = document.querySelector('#unitId');
@@ -16,6 +18,12 @@ const lastCounterValue = document.querySelector('#lastCounterValue');
 const lastDisconnectAt = document.querySelector('#lastDisconnectAt');
 const lastDowntime = document.querySelector('#lastDowntime');
 const lastDisconnectReason = document.querySelector('#lastDisconnectReason');
+const testDuration = document.querySelector('#testDuration');
+const testMedium = document.querySelector('#testMedium');
+const testAdapter = document.querySelector('#testAdapter');
+const testRemaining = document.querySelector('#testRemaining');
+const testStartedAt = document.querySelector('#testStartedAt');
+const testDisconnects = document.querySelector('#testDisconnects');
 const logView = document.querySelector('#logView');
 const dataView = document.querySelector('#dataView');
 const sentCount = document.querySelector('#sentCount');
@@ -26,6 +34,11 @@ const statusSeconds = document.querySelector('#statusSeconds');
 const macAddress = document.querySelector('#macAddress');
 
 let connected = false;
+let latestStats = {};
+let timedTestTimer = null;
+let timedTestEndsAt = 0;
+let timedTestDisconnectBaseline = 0;
+let networkAdapters = [];
 
 function getConfig() {
   return {
@@ -81,9 +94,12 @@ function setControls() {
   disconnectButton.disabled = !connected;
   detectMacButton.disabled = false;
   writeCounterButton.disabled = !connected;
+  startTimedTestButton.disabled = !connected || Boolean(timedTestTimer);
+  stopTimedTestButton.disabled = !timedTestTimer;
 }
 
 function renderStats(stats = {}) {
+  latestStats = stats;
   sentCount.textContent = stats.sent ?? 0;
   receivedCount.textContent = stats.received ?? 0;
   disconnectCount.textContent = stats.disconnects ?? 0;
@@ -91,6 +107,106 @@ function renderStats(stats = {}) {
   lastDisconnectAt.textContent = stats.lastDisconnectAt ? timeLabel(stats.lastDisconnectAt) : '--';
   lastDowntime.textContent = stats.lastDowntimeMs ? `${Math.round(stats.lastDowntimeMs / 1000)}s` : '--';
   lastDisconnectReason.textContent = stats.lastDisconnectReason || 'Sin eventos';
+}
+
+function formatDuration(seconds) {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function mediumLabel(value) {
+  return value === 'wifi' ? 'WiFi' : 'Ethernet';
+}
+
+function getSelectedAdapter() {
+  const selectedMedium = testMedium.value;
+  return networkAdapters.find((adapter) => adapter.medium === selectedMedium)
+    || networkAdapters.find((adapter) => adapter.medium === 'unknown')
+    || networkAdapters[0];
+}
+
+function renderSelectedAdapter() {
+  const adapter = getSelectedAdapter();
+
+  if (!adapter) {
+    testAdapter.textContent = 'No detectada';
+    return;
+  }
+
+  testAdapter.textContent = `${adapter.address} (${adapter.name})`;
+}
+
+async function refreshNetworkAdapters() {
+  try {
+    networkAdapters = await window.plcApi.getNetworkAdapters();
+    renderSelectedAdapter();
+  } catch (error) {
+    networkAdapters = [];
+    testAdapter.textContent = 'No detectada';
+    appendLog({
+      level: 'warn',
+      message: error.message || 'No se pudieron leer las redes de la PC.',
+      at: new Date().toISOString()
+    });
+  }
+}
+
+function updateTimedTest() {
+  if (!timedTestTimer) return;
+
+  const remainingSeconds = Math.ceil((timedTestEndsAt - Date.now()) / 1000);
+  const disconnects = Math.max(0, (latestStats.disconnects || 0) - timedTestDisconnectBaseline);
+
+  testRemaining.textContent = formatDuration(remainingSeconds);
+  testDisconnects.textContent = disconnects;
+
+  if (remainingSeconds <= 0) {
+    stopTimedTest('Prueba finalizada por tiempo.');
+  }
+}
+
+function startTimedTest() {
+  const durationSeconds = Number(testDuration.value);
+  const adapter = getSelectedAdapter();
+  const selectedMedium = mediumLabel(testMedium.value);
+
+  timedTestDisconnectBaseline = latestStats.disconnects || 0;
+  timedTestEndsAt = Date.now() + durationSeconds * 1000;
+  testStartedAt.textContent = timeLabel(new Date().toISOString());
+  testDisconnects.textContent = '0';
+
+  if (timedTestTimer) {
+    clearInterval(timedTestTimer);
+  }
+
+  timedTestTimer = setInterval(updateTimedTest, 1000);
+  appendLog({
+    level: 'info',
+    message: `Prueba por tiempo iniciada: ${Math.round(durationSeconds / 60)} min por ${selectedMedium}${adapter ? ` (${adapter.address}, ${adapter.name})` : ''}.`,
+    at: new Date().toISOString()
+  });
+  updateTimedTest();
+  setControls();
+}
+
+function stopTimedTest(message = 'Prueba por tiempo detenida.') {
+  if (!timedTestTimer) return;
+
+  clearInterval(timedTestTimer);
+  timedTestTimer = null;
+
+  const disconnects = Math.max(0, (latestStats.disconnects || 0) - timedTestDisconnectBaseline);
+  testRemaining.textContent = 'Sin prueba';
+  testDisconnects.textContent = disconnects;
+  appendLog({
+    level: disconnects > 0 ? 'warn' : 'success',
+    message: `${message} Desconexiones durante prueba: ${disconnects}.`,
+    at: new Date().toISOString()
+  });
+  setControls();
 }
 
 function clampCounterValue(value) {
@@ -210,6 +326,16 @@ clearDataButton.addEventListener('click', () => {
   dataView.innerHTML = '<p class="empty">Sin datos recibidos.</p>';
 });
 
+startTimedTestButton.addEventListener('click', () => {
+  runAction(async () => startTimedTest());
+});
+
+stopTimedTestButton.addEventListener('click', () => {
+  stopTimedTest();
+});
+
+testMedium.addEventListener('change', renderSelectedAdapter);
+
 window.plcApi.on('plc:status', (status) => {
   connected = Boolean(status.connected);
   setStatus(status.state);
@@ -245,3 +371,5 @@ window.plcApi.getStatus()
       at: new Date().toISOString()
     });
   });
+
+refreshNetworkAdapters();

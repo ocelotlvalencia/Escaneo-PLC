@@ -145,6 +145,52 @@
                 <strong id="lastDisconnectReason">Sin eventos</strong>
               </div>
             </div>
+
+            <div class="timed-test">
+              <div class="timed-test-head">
+                <div>
+                  <h3>Prueba por tiempo</h3>
+                  <p>Registra estabilidad durante una duracion definida.</p>
+                </div>
+                <strong id="testRemaining">Sin prueba</strong>
+              </div>
+
+              <div class="timed-test-grid">
+                <label>
+                  Duracion
+                  <select id="testDuration">
+                    <option value="300">5 min</option>
+                    <option value="900">15 min</option>
+                    <option value="1800">30 min</option>
+                    <option value="3600">60 min</option>
+                    <option value="7200">120 min</option>
+                  </select>
+                </label>
+                <label>
+                  Medio
+                  <select id="testMedium">
+                    <option value="ethernet">Ethernet</option>
+                    <option value="wifi">WiFi</option>
+                  </select>
+                </label>
+                <div>
+                  <span>Red PC</span>
+                  <strong id="testAdapter">--</strong>
+                </div>
+                <div>
+                  <span>Inicio</span>
+                  <strong id="testStartedAt">--</strong>
+                </div>
+                <div>
+                  <span>Desconexiones</span>
+                  <strong id="testDisconnects">--</strong>
+                </div>
+                <div class="timed-test-actions">
+                  <button class="primary" id="startTimedTestButton" type="button">Iniciar prueba</button>
+                  <button id="stopTimedTestButton" type="button">Detener</button>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section class="split">

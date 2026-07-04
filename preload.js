@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('plcApi', {
   detectMac: (request) => ipcRenderer.invoke('plc:detectMac', request),
   writeCounter: (request) => ipcRenderer.invoke('plc:writeCounter', request),
   getStatus: () => ipcRenderer.invoke('plc:getStatus'),
+  getNetworkAdapters: () => ipcRenderer.invoke('plc:getNetworkAdapters'),
   on: (eventName, callback) => {
     if (!validEvents.has(eventName)) return () => {};
     const listener = (_event, payload) => callback(payload);
