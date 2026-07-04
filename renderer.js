@@ -13,6 +13,9 @@ const counterValue = document.querySelector('#counterValue');
 const modbusRegister = document.querySelector('#modbusRegister');
 const unitId = document.querySelector('#unitId');
 const lastCounterValue = document.querySelector('#lastCounterValue');
+const lastDisconnectAt = document.querySelector('#lastDisconnectAt');
+const lastDowntime = document.querySelector('#lastDowntime');
+const lastDisconnectReason = document.querySelector('#lastDisconnectReason');
 const logView = document.querySelector('#logView');
 const dataView = document.querySelector('#dataView');
 const sentCount = document.querySelector('#sentCount');
@@ -85,6 +88,9 @@ function renderStats(stats = {}) {
   receivedCount.textContent = stats.received ?? 0;
   disconnectCount.textContent = stats.disconnects ?? 0;
   latency.textContent = stats.lastLatencyMs == null ? '--' : `${stats.lastLatencyMs} ms`;
+  lastDisconnectAt.textContent = stats.lastDisconnectAt ? timeLabel(stats.lastDisconnectAt) : '--';
+  lastDowntime.textContent = stats.lastDowntimeMs ? `${Math.round(stats.lastDowntimeMs / 1000)}s` : '--';
+  lastDisconnectReason.textContent = stats.lastDisconnectReason || 'Sin eventos';
 }
 
 function clampCounterValue(value) {
@@ -209,6 +215,9 @@ window.plcApi.on('plc:status', (status) => {
   setStatus(status.state);
   setStatusTiming(status);
   renderStats(status.stats);
+  if (!status.connected && status.outageSeconds && status.stats?.lastDisconnectAt) {
+    lastDowntime.textContent = `${status.outageSeconds}s actual`;
+  }
   setControls();
 });
 
@@ -224,6 +233,9 @@ window.plcApi.getStatus()
     setStatus(connected ? 'connected' : 'disconnected');
     setStatusTiming(status);
     renderStats(status.stats);
+    if (!status.connected && status.outageSeconds && status.stats?.lastDisconnectAt) {
+      lastDowntime.textContent = `${status.outageSeconds}s actual`;
+    }
     setControls();
   })
   .catch((error) => {

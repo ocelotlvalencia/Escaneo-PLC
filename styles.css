@@ -521,6 +521,39 @@ textarea:focus {
   font-family: Consolas, 'Courier New', monospace;
 }
 
+.diagnostic-grid {
+  display: grid;
+  grid-template-columns: 150px 130px minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.diagnostic-grid div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px 12px;
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.diagnostic-grid span {
+  display: block;
+  margin-bottom: 5px;
+  color: #52627a;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.diagnostic-grid strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -646,6 +679,10 @@ textarea:focus {
   .counter-actions {
     grid-column: span 2;
   }
+
+  .diagnostic-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -758,6 +795,10 @@ textarea:focus {
     grid-column: span 1;
   }
 
+  .diagnostic-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .split {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
@@ -787,6 +828,7 @@ textarea:focus {
   }
 
   .counter-grid,
+  .diagnostic-grid,
   .split {
     grid-template-columns: 1fr;
   }

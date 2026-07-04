@@ -1,6 +1,6 @@
 {
   "name": "escaneo",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Herramienta de escritura y monitoreo Modbus TCP para PLC.",
   "license": "ISC",
   "author": "Eduardo Ocelotl",

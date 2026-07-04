@@ -16,6 +16,8 @@ let modbusTransactionId = 1;
 let connectionState = 'disconnected';
 let stateChangedAt = Date.now();
 let connectedAt = null;
+let outageStartedAt = null;
+let lastSocketError = null;
 
 const stats = {
   sent: 0,
@@ -23,7 +25,11 @@ const stats = {
   disconnects: 0,
   errors: 0,
   reconnects: 0,
-  lastLatencyMs: null
+  lastLatencyMs: null,
+  lastDisconnectAt: null,
+  lastDisconnectReason: '',
+  lastDowntimeMs: 0,
+  lastReconnectAt: null
 };
 
 function createWindow() {
@@ -83,10 +89,64 @@ function publishStatus(state, extra = {}) {
     connected,
     stateSeconds: Math.max(0, Math.floor((now - stateChangedAt) / 1000)),
     connectedSeconds: connectedAt ? Math.max(0, Math.floor((now - connectedAt) / 1000)) : 0,
+    outageSeconds: outageStartedAt ? Math.max(0, Math.floor((now - outageStartedAt) / 1000)) : 0,
     stats: { ...stats },
     config: currentConfig,
     ...extra
   });
+}
+
+function describeConnectionError(error, fallback = 'Conexion perdida') {
+  const code = error?.code || '';
+  const message = error?.message || '';
+
+  if (message.includes('Heartbeat')) {
+    return 'Timeout de monitoreo: el PLC dejo de aceptar/verificar conexion.';
+  }
+
+  if (code === 'ECONNREFUSED') {
+    return 'Conexion rechazada: el PLC o puerto Modbus 502 no esta aceptando conexiones.';
+  }
+
+  if (code === 'ETIMEDOUT') {
+    return 'Timeout de red: el PLC no respondio dentro del tiempo configurado.';
+  }
+
+  if (code === 'ECONNRESET') {
+    return 'Conexion reiniciada: el PLC o la red cerraron la conexion abruptamente.';
+  }
+
+  if (code === 'EHOSTUNREACH') {
+    return 'Host inaccesible: no hay ruta hacia la IP del PLC.';
+  }
+
+  if (code === 'ENETUNREACH') {
+    return 'Red inaccesible: la PC perdio acceso a la red del PLC.';
+  }
+
+  if (code === 'EPIPE') {
+    return 'Canal cerrado: se intento enviar cuando la conexion ya estaba cerrada.';
+  }
+
+  return message ? `${fallback}: ${message}` : fallback;
+}
+
+function rememberDisconnect(reason) {
+  outageStartedAt = Date.now();
+  stats.lastDisconnectAt = new Date(outageStartedAt).toISOString();
+  stats.lastDisconnectReason = reason;
+}
+
+function rememberReconnect() {
+  const now = Date.now();
+  stats.lastReconnectAt = new Date(now).toISOString();
+
+  if (outageStartedAt) {
+    stats.lastDowntimeMs = now - outageStartedAt;
+    log(`PLC reconectado. Tiempo fuera: ${Math.round(stats.lastDowntimeMs / 1000)}s.`, 'success');
+  }
+
+  outageStartedAt = null;
 }
 
 function payloadToBuffer(payload, mode) {
@@ -101,7 +161,7 @@ function payloadToBuffer(payload, mode) {
   return Buffer.from(payload, 'utf8');
 }
 
-function closeSocket(countDisconnect = false) {
+function closeSocket(countDisconnect = false, reason = 'Conexion cerrada') {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
@@ -116,6 +176,7 @@ function closeSocket(countDisconnect = false) {
 
   if (connected && countDisconnect) {
     stats.disconnects += 1;
+    rememberDisconnect(reason);
   }
 
   connected = false;
@@ -198,9 +259,10 @@ function startHeartbeat() {
       .catch((error) => {
         heartbeatInFlight = false;
         stats.errors += 1;
-        log(`PLC sin conexion: ${error.message}`, 'error');
-        closeSocket(true);
-        publishStatus('disconnected', { error: error.message });
+        const reason = describeConnectionError(error, 'Monitoreo fallido');
+        log(`PLC perdido: ${reason}`, 'error');
+        closeSocket(true, reason);
+        publishStatus('disconnected', { error: reason });
         scheduleReconnect();
       });
   }, 3000);
@@ -226,11 +288,13 @@ function connectToPlc(config, isReconnect = false) {
   publishStatus(isReconnect ? 'reconnecting' : 'connecting');
   startStatusTicker();
   log(`${isReconnect ? 'Reconectando' : 'Conectando'} a ${host}:${port}...`);
+  lastSocketError = null;
 
   socket.connect(port, host, () => {
     connected = true;
     connectedAt = Date.now();
     socket.setTimeout(0);
+    rememberReconnect();
     log(`Conexion establecida con ${host}:${port}.`, 'success');
     publishStatus('connected');
     startHeartbeat();
@@ -254,16 +318,19 @@ function connectToPlc(config, isReconnect = false) {
 
   socket.on('timeout', () => {
     stats.errors += 1;
-    log(`No se pudo establecer conexion en ${timeoutMs} ms.`, 'warn');
-    closeSocket(true);
-    publishStatus('timeout');
+    const reason = `Timeout inicial: no se pudo establecer conexion en ${timeoutMs} ms.`;
+    lastSocketError = reason;
+    log(reason, 'warn');
+    closeSocket(true, reason);
+    publishStatus('timeout', { error: reason });
     scheduleReconnect();
   });
 
   socket.on('error', (error) => {
     stats.errors += 1;
-    log(error.message, 'error');
-    publishStatus('error', { error: error.message });
+    lastSocketError = describeConnectionError(error, 'Error de socket');
+    log(lastSocketError, 'error');
+    publishStatus('error', { error: lastSocketError });
   });
 
   socket.on('close', (hadError) => {
@@ -272,11 +339,14 @@ function connectToPlc(config, isReconnect = false) {
     socket = null;
 
     if (wasConnected) {
+      const reason = lastSocketError || (hadError ? 'Conexion cerrada con error por el PLC o la red.' : 'Conexion cerrada por el equipo remoto.');
       stats.disconnects += 1;
-      log(hadError ? 'Conexion cerrada con error.' : 'Conexion cerrada por el equipo remoto.', hadError ? 'error' : 'warn');
+      rememberDisconnect(reason);
+      log(reason, hadError ? 'error' : 'warn');
     }
 
     connectedAt = null;
+    lastSocketError = null;
     publishStatus('disconnected');
     scheduleReconnect();
   });

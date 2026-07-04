@@ -109,9 +109,9 @@
               <label>
                 Valor a enviar
                 <div class="stepper-control">
-                  <button type="button" id="incrementCounterButton" aria-label="Aumentar valor">▲</button>
+                  <button type="button" id="incrementCounterButton" aria-label="Aumentar valor">+</button>
                   <input id="counterValue" type="number" min="1" max="100" value="1" />
-                  <button type="button" id="decrementCounterButton" aria-label="Disminuir valor">▼</button>
+                  <button type="button" id="decrementCounterButton" aria-label="Disminuir valor">-</button>
                 </div>
               </label>
               <label>
@@ -129,6 +129,21 @@
 
             <div class="counter-result">
               Ultimo valor enviado: <strong id="lastCounterValue">--</strong>
+            </div>
+
+            <div class="diagnostic-grid">
+              <div>
+                <span>Ultima perdida</span>
+                <strong id="lastDisconnectAt">--</strong>
+              </div>
+              <div>
+                <span>Tiempo fuera</span>
+                <strong id="lastDowntime">--</strong>
+              </div>
+              <div>
+                <span>Causa probable</span>
+                <strong id="lastDisconnectReason">Sin eventos</strong>
+              </div>
             </div>
           </section>
 
